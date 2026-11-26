@@ -1,27 +1,37 @@
-// Out-of-office auto-reply entry: writes the single reply line to /output/entry.txt.
-// The reply text lives in entry.txt next to this script; this program only copies it
-// into the grader's output directory, unchanged.
+// Out-of-office v2 — program/v1 entry.
+// Reads entry.txt sitting next to this script and copies it byte-for-byte
+// to $MAKEFUN_OUTPUT_DIR/entry.txt. No dependencies, no network.
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const here = dirname(fileURLToPath(import.meta.url));
-const source = join(here, "entry.txt");
-const text = readFileSync(source, "utf8");
+const MAX_CHARS = 160;
 
-// Gate: 1 to 160 characters of UTF-8 text, not only whitespace.
-const trimmed = text.trim();
-if (trimmed.length < 1 || trimmed.length > 160) {
-  throw new Error(`entry.txt must be 1-160 characters, got ${trimmed.length}`);
+const scriptDir = dirname(fileURLToPath(import.meta.url));
+const entryPath = join(scriptDir, "entry.txt");
+
+const outputDir = process.env.MAKEFUN_OUTPUT_DIR;
+if (!outputDir) {
+  throw new Error("MAKEFUN_OUTPUT_DIR is not set");
 }
 
-const outDir = process.env.MAKEFUN_OUTPUT_DIR ?? "/output";
-mkdirSync(outDir, { recursive: true });
-const outPath = join(outDir, "entry.txt");
-writeFileSync(outPath, text, "utf8");
+const text = readFileSync(entryPath, "utf8");
 
-// Read-back: the grader's output must be byte-identical to entry.txt.
-const written = readFileSync(outPath, "utf8");
-if (written !== text) {
-  throw new Error("output does not match entry.txt");
+// All gate checks live in one place so the entry can never reach the
+// output dir unvalidated: non-empty, a single line, within the 160-char cap.
+function validateEntry(entry: string): void {
+  if (entry.trim().length === 0) {
+    throw new Error("entry.txt is empty or whitespace-only");
+  }
+  if (entry.includes("\n") || entry.includes("\r")) {
+    throw new Error("entry.txt must be a single line");
+  }
+  if ([...entry].length > MAX_CHARS) {
+    throw new Error(`entry.txt exceeds ${MAX_CHARS} characters`);
+  }
 }
+
+validateEntry(text);
+
+mkdirSync(outputDir, { recursive: true });
+writeFileSync(join(outputDir, "entry.txt"), text, "utf8");
