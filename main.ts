@@ -19,7 +19,7 @@ const text = readFileSync(entryPath, "utf8");
 
 // All gate checks live in one place so the entry can never reach the
 // output dir unvalidated: non-empty, a single line, within the 160-char cap.
-function validateEntry(entry: string): void {
+function validateEntry(entry) {
   if (entry.trim().length === 0) {
     throw new Error("entry.txt is empty or whitespace-only");
   }
